@@ -1,0 +1,76 @@
+## Full guide available at https://relay.sh/docs/getting-started
+
+apiVersion: v1
+parameters:
+  vm_name:
+    description: The name of the VM
+    default: bolt-cloud-demo
+  puppetserver:
+    description: The name of the Puppet Server.
+    default: 54.177.246.168
+steps:
+- name: get-vm-name-from-terraform
+  image: relaysh/terraform-step-output
+  spec:
+    backendConfig:
+      resource_group_name: "puppetize"
+      storage_account_name: "boltdemotf"
+      container_name: "tfstate"
+      key: "${parameters.vm_name}-relay.tfstate"
+      access_key: ${secrets.backend_access_key}
+    workspace: default
+    directory: terraform/azure
+    git:
+      name: puppetize-2021-content
+      repository: git@github.com:matthewrstone/puppetize-2021-content.git
+      connection: ${connections.ssh.github}
+      branch: master
+- name: destroy-azurevm-with-terraform
+  image: relaysh/terraform-step-destroy
+  dependsOn: get-vm-name-from-terraform
+  spec:
+    vars:
+      subscription_id: ${connections.azure.azure-creds.subscriptionID}
+      client_id: ${connections.azure.azure-creds.clientID}
+      client_secret: ${connections.azure.azure-creds.secret}
+      tenant_id: ${connections.azure.azure-creds.tenantID}
+      # TODO: Swap in your public SSH key here
+      ssh_key: ${secrets.azure_public_key}
+      vm_name: ${parameters.vm_name}
+    backendConfig:
+      resource_group_name: "puppetize"
+      storage_account_name: "boltdemotf"
+      container_name: "tfstate"
+      key: "${parameters.vm_name}-relay.tfstate"
+      access_key: ${secrets.backend_access_key}
+    workspace: default
+    directory: terraform/azure
+    git:
+      name: puppetize-2021-content
+      repository: git@github.com:matthewrstone/puppetize-2021-content.git
+      connection: ${connections.ssh.github}
+      branch: master
+- name: purge-puppet-node
+  image: relaysh/bolt-step-run
+  dependsOn: get-vm-name-from-terraform
+  spec:
+    credentials:
+      # Feel free to re-use my azure connection
+      puppetserver: ${connections.ssh.puppetserver.sshKey}
+    installModules: true
+    transport:
+      type: ssh
+      user: centos
+      privateKey: puppetserver
+      run_as: root
+      verifyHost: false
+    git:
+      connection: ${connections['ssh']['github']}
+      name: puppetize-2021-content
+      branch: add_create_facts
+      repository: "git@github.com:matthewrstone/puppetize-2021-content.git"
+    type: task
+    name: puppetserver::purge_puppet_node
+    parameters:
+      node: ${outputs.get-vm-name-from-terraform.azurevm_dns_name}
+    targets: ${parameters.puppetserver}

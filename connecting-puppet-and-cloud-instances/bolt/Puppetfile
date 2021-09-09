@@ -1,0 +1,18 @@
+# This Puppetfile is managed by Bolt. Do not edit.
+# For more information, see https://pup.pt/bolt-modules
+
+# The following directive installs modules to the managed moduledir.
+moduledir '.modules'
+
+mod 'puppetserver',
+  git: 'https://github.com/matthewrstone/bolt-puppetserver.git',
+  ref: 'main'
+#  ref: 'd6365f0350ba0a6368c0ce66e3d98d622d38164c'
+mod 'puppetlabs/puppet_agent', '4.8.0'
+mod 'puppetlabs/ruby_plugin_helper', '0.2.0'
+mod 'puppetlabs/ruby_task_helper', '0.6.0'
+mod 'puppetlabs/terraform', '0.6.1'
+mod 'puppetlabs/stdlib', '7.1.0'
+mod 'puppetlabs/inifile', '5.2.0'
+mod 'puppetlabs/apt', '8.2.0'
+mod 'puppetlabs/facts', '1.4.0'

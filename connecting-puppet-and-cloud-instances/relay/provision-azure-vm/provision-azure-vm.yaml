@@ -1,0 +1,111 @@
+## Full guide available at https://relay.sh/docs/getting-started
+
+apiVersion: v1
+parameters:
+  vm_name:
+    description: The name of the VM
+    default: bolt-cloud-demo
+  resource_group:
+    description: The Azure resource group
+    default: puppetize2021mj
+  puppet_role:
+    description: The puppet role for this VM.
+    default: role::webserver
+  puppet_env:
+    description: The puppet environment for this VM.
+    default: production
+  puppetserver:
+    description: The name of the Puppet Server.
+    default: 54.177.246.168
+  size:
+    description: VM size.
+    default: Standard_A1
+steps:
+- name: provision-azure-vm
+  image: relaysh/terraform-step-apply
+  spec:
+    vars:
+      subscription_id: ${connections.azure.azure-creds.subscriptionID}
+      client_id: ${connections.azure.azure-creds.clientID}
+      client_secret: ${connections.azure.azure-creds.secret}
+      tenant_id: ${connections.azure.azure-creds.tenantID}
+      # TODO: Swap in your public SSH key here
+      ssh_key: ${secrets.azure_public_key}
+      vm_name: ${parameters.vm_name}
+      role: ${parameters.puppet_role}
+      environment: ${parameters.puppet_env}
+      size: ${parameters.size}
+    backendConfig:
+      resource_group_name: "puppetize"
+      storage_account_name: "boltdemotf"
+      container_name: "tfstate"
+      key: "${parameters.vm_name}-relay.tfstate"
+      access_key: ${secrets.backend_access_key}
+    workspace: default
+    directory: terraform/azure
+    git:
+      name: puppetize-2021-content
+      repository: git@github.com:matthewrstone/puppetize-2021-content.git
+      connection: ${connections.ssh.github}
+      branch: master
+- name: create-trusted-facts
+  image: relaysh/bolt-step-run
+  dependsOn: provision-azure-vm
+  spec:
+    credentials:
+      # Feel free to re-use my azure connection
+      azure: ${connections.ssh.azure_private_key.sshKey}
+    installModules: true
+    transport:
+      type: ssh
+      user: ubuntu
+ #     privateKey: /workspace/creds/azure
+      privateKey: azure
+      run_as: root
+      verifyHost: false
+    git:
+      connection: ${connections['ssh']['github']}
+      name: puppetize-2021-content
+      branch: master
+      repository: "git@github.com:matthewrstone/puppetize-2021-content.git"
+    type: task
+    name: puppetserver::create_trusted_facts
+    parameters:
+      role: ${parameters.puppet_role}
+      env: ${parameters.puppet_env}
+    targets: ${outputs.provision-azure-vm.azurevm_dns_name}
+- name: configure-puppet-agent
+  image: relaysh/bolt-step-run
+  dependsOn: create-trusted-facts
+  spec:
+    credentials:
+      # Feel free to re-use my azure connection
+      azure: ${connections.ssh.azure_private_key.sshKey}
+    installModules: true
+    transport:
+      type: ssh
+      user: ubuntu
+#      privateKey: /workspace/creds/azure
+      privateKey: azure
+      run_as: root
+      verifyHost: false
+    git:
+      connection: ${connections['ssh']['github']}
+      name: puppetize-2021-content
+      branch: master
+      repository: "git@github.com:matthewrstone/puppetize-2021-content.git"
+    type: plan
+    name: puppetserver::configure_puppet_agent
+    parameters:
+      puppetserver: ${parameters.puppetserver}
+      vm_name: ${outputs.provision-azure-vm.azurevm_dns_name}
+    targets: ${outputs.provision-azure-vm.azurevm_dns_name}
+- name: output-bolt-info
+  image: relaysh/stdlib-step-echo
+  spec:
+    message: 
+    - !Output [create-trusted-facts, output]
+    - !Output [configure-puppet-agent, output]
+  dependsOn:
+    - create-trusted-facts
+    - configure-puppet-agent
