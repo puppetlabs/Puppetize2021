@@ -4,7 +4,6 @@ description: This workflow uses Terraform to provision an EC2 instance, then it 
 homepage: https://github.com/puppetlabs/Puppetize2021/new/main/connecting-puppet-and-cloud-instances/terraform/aws/ec2-provision-and-configure-with-bolt
 tags:
  - continuous delivery
-
 parameters:
   terraformRepository:
     description: The git repository where bolt files are located
@@ -19,6 +18,7 @@ parameters:
     default: [your defined AWS Connection]
   terraformStateBucket:
     description: The name of the bucket you'd like to store terraform state in
+    default: puppetizedemo21
   terraformStateFilename:
     description: The name of the state file to use
     default: bolt-workflow.tfstate
@@ -71,3 +71,8 @@ steps:
       user: [yourUID]
       privateKey: id_rsa
       verifyHost: false
+    git:
+      # connection: ${connections.ssh.bolt}
+      name: puppetize2021
+      repository: "https://github.com/puppetlab/Puppetize2021"
+      branch: main
