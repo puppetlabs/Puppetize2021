@@ -1,0 +1,73 @@
+apiVersion: v1
+summary: Provision an EC2 instance and configure it with Bolt
+description: This workflow uses Terraform to provision an EC2 instance, then it runs a Bolt plan to configure it.
+homepage: https://github.com/puppetlabs/Puppetize2021/new/main/connecting-puppet-and-cloud-instances/terraform/aws/ec2-provision-and-configure-with-bolt
+tags:
+ - continuous delivery
+
+parameters:
+  terraformRepository:
+    description: The git repository where bolt files are located
+    default: https://github.com/puppetlab/Puppetize2021/connecting-puppet-and-cloud-instances/terraform/aws/
+  awsRegion:
+    description: The AWS region to deploy the EC2 instance
+    default: us-west-1
+  vpcID:
+    description: The AWS vpc id to deploy EC2 instance
+  sshKeyName:
+    description: The AWS ssh key for the EC2 instance
+    default: [your defined AWS Connection]
+  terraformStateBucket:
+    description: The name of the bucket you'd like to store terraform state in
+  terraformStateFilename:
+    description: The name of the state file to use
+    default: bolt-workflow.tfstate
+  terraformWorkspace:
+    description: The name of the Terraform workspace to use
+    default: default
+  boltRepository:
+    description: The git repository URL where bolt files are located
+  boltPlanName:
+    description: The name of the bolt plan to run
+  boltProjectDir:
+    description: The path to the bolt directory in boltRepository
+    default: Boltdir
+
+steps:
+- name: provision-ec2-with-terraform
+  image: relaysh/terraform-step-apply
+  spec:
+    backendConfig:
+      bucket: !Parameter terraformStateBucket
+      region: !Parameter awsRegion
+      key: !Parameter terraformStateFilename
+    vars:
+      vpc_id: !Parameter vpcID
+      aws_region: !Parameter awsRegion
+      key_name: !Parameter sshKeyName
+    workspace: !Parameter terraformWorkspace
+    directory: ec2-provision-and-configure-with-bolt/infra/
+    aws: !Connection { type: aws, name: terraform-provider }
+    # Note that the terraform files are pulled from a public repository,
+    # so we don't need an ssh key here like we do below.
+    git:
+      name: relay-workflows
+      repository: !Parameter terraformRepository
+
+- name: configure-instance-with-bolt
+  dependsOn:
+    - provision-ec2-with-terraform
+  image: relaysh/bolt-step-run
+  spec:
+    type: plan
+    name: configure_puppet_agent.pp
+    projectDir: Puppetize2021/connecting-puppet-and-cloud-instances/tasks
+    installModules: true
+    targets: !Output [provision-ec2-with-terraform, EC2_IP]
+    credentials:
+      id_rsa: !Connection { type: ssh, name: [your defined Github key] }
+    transport:
+      type: ssh
+      user: [yourUID]
+      privateKey: id_rsa
+      verifyHost: false
