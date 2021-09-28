@@ -7,6 +7,7 @@ The Relay workflow file.  Add this to your Relay account.  This file defines the
 You'll need to set up the following in Relay:
 A Connection for AWS credentials (access key and secret access key)
 A Connection for the private RSA key for access the EC2 instance
+A Connection for the git RSA key (if you're using a private repo)
   
 
 infra/ The Terraform files that define the EC2 instance being provisioned, variables, and defaults.
