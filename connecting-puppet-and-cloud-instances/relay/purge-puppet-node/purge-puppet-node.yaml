@@ -1,0 +1,33 @@
+## Full guide available at https://relay.sh/docs/getting-started
+
+apiVersion: v1
+parameters:
+  certname:
+    description: The certname of the node.
+  puppetserver:
+    description: The name of the Puppet Server.
+    default: 54.177.246.168
+steps:
+- name: purge-puppet-node
+  image: relaysh/bolt-step-run
+  spec:
+    credentials:
+      # Feel free to re-use my azure connection
+      puppetserver: ${connections.ssh.puppetserver.sshKey}
+    installModules: true
+    transport:
+      type: ssh
+      user: centos
+      privateKey: puppetserver
+      run_as: root
+      verifyHost: false
+    git:
+      connection: ${connections['ssh']['github']}
+      name: puppetize-2021-content
+      branch: add_create_facts
+      repository: "git@github.com:matthewrstone/puppetize-2021-content.git"
+    type: task
+    name: puppetserver::purge_puppet_node
+    parameters:
+      node: ${parameters.certname}
+    targets: ${parameters.puppetserver}
