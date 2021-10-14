@@ -44,3 +44,8 @@ variable "environment" {
     description = "The puppet environment"
     default = "production"
 }
+
+variable "resource_group" {}
+variable "subnet" {}
+variable "virtual_network" {}
+variable "nsg" {}
